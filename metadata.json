@@ -1,0 +1,5 @@
+{
+  "name": "Semiprime Lambda Pipeline",
+  "description": "A React frontend to calculate Semiprime Lambda scores for gRNA candidates from a CSV dataset or by discovering them directly from a FASTA sequence.",
+  "requestFramePermissions": []
+}
