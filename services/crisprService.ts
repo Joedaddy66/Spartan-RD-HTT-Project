@@ -47,31 +47,33 @@ export const fingerprint = (p: number, q: number): number => {
 };
 
 /**
- * Analyzes a DNA sequence (gRNA + PAM) and calculates a cumulative lambda score.
+ * Analyzes a DNA sequence (gRNA + PAM) and calculates a cumulative lambda score
+ * along with detailed factorization data for each 6-mer window.
  *
  * @param seq The full sequence including gRNA (protospacer) and PAM.
  *            Expected format: [20bp protospacer][3bp PAM]
  * @param step The step size for codon sliding window.
  * @param pam The PAM sequence pattern (e.g., 'NGG'). 'N' matches any nucleotide.
- * @returns The cumulative lambda score for the sequence.
+ * @returns An object containing the cumulative lambda score and an array of factorization details.
  */
-export const analyzeSequenceForScore = (seq: string, step: number = 1, pam: string = 'NGG'): number => {
+export const analyzeSequenceForScore = (seq: string, step: number = 1, pam: string = 'NGG'): {totalLambda: number, factorizationDetails: {N: number, p: number, q: number, additive_complexity: number, multiplicative_resistance: number}[]} => {
   if (seq.length < 23) { // 20bp protospacer + 3bp PAM
-    return 0.0; // Sequence too short
+    return {totalLambda: 0.0, factorizationDetails: []}; // Sequence too short
   }
 
   const pamRegex = new RegExp(`^${pam.toUpperCase().replace('N', '[ACGT]')}$`);
   let totalLambda = 0.0;
+  const factorizationDetails: {N: number, p: number, q: number, additive_complexity: number, multiplicative_resistance: number}[] = [];
   const protospacer = seq.substring(0, 20).toUpperCase();
   const pamSeqFromInput = seq.substring(20, 23).toUpperCase();
 
   if (!(pamSeqFromInput.length === 3 && pamRegex.test(pamSeqFromInput))) {
-    return 0.0; // PAM does not match
+    return {totalLambda: 0.0, factorizationDetails: []}; // PAM does not match
   }
 
   // Ensure protospacer consists only of valid DNA bases
   if (!/^[ACGT]+$/.test(protospacer)) {
-    return 0.0;
+    return {totalLambda: 0.0, factorizationDetails: []};
   }
 
   for (let i = 0; i <= protospacer.length - 6; i += step) { // Iterate through 6-base windows (two codons)
@@ -92,11 +94,64 @@ export const analyzeSequenceForScore = (seq: string, step: number = 1, pam: stri
       const N = c1 * 64 + c2; // 64 = 4^3, as each codon is 3 bases (0-63 range)
 
       const [p, q] = semiprimeFactors(N);
+      const additive_complexity = (p + q) / 2;
+      const multiplicative_resistance = p * q; // N itself
+
       totalLambda += fingerprint(p, q);
+      factorizationDetails.push({ N, p, q, additive_complexity, multiplicative_resistance });
     } catch (e) {
       // console.error(`Skipping window due to error: ${e}`); // For debugging
       continue; // Skip windows that don't form valid semiprimes or codons
     }
   }
-  return totalLambda;
+  return { totalLambda, factorizationDetails };
+};
+
+/**
+ * Calculates a cumulative lambda score and factorization details for any given DNA sequence
+ * by iterating through 6-mer (two-codon) windows.
+ *
+ * @param sequence The DNA sequence to analyze.
+ * @param step The step size for the 6-mer sliding window.
+ * @returns An object containing the cumulative lambda score and an array of factorization details.
+ */
+export const calculateLambdaForGenericSequence = (sequence: string, step: number = 1): {totalLambda: number, factorizationDetails: {N: number, p: number, q: number, additive_complexity: number, multiplicative_resistance: number}[]} => {
+  const upperSequence = sequence.toUpperCase();
+  if (!/^[ACGT]+$/.test(upperSequence)) {
+    throw new ValueError(`Invalid sequence: "${sequence}". Sequence must contain only A, C, G, T.`);
+  }
+  if (upperSequence.length < 6) {
+    return {totalLambda: 0.0, factorizationDetails: []}; // Sequence too short for any 6-mer
+  }
+
+  let totalLambda = 0.0;
+  const factorizationDetails: {N: number, p: number, q: number, additive_complexity: number, multiplicative_resistance: number}[] = [];
+
+  for (let i = 0; i <= upperSequence.length - 6; i += step) {
+    try {
+      const codon1Str = upperSequence.substring(i, i + 3);
+      const codon2Str = upperSequence.substring(i + 3, i + 6);
+
+      // Ensure we have full codons
+      if (codon1Str.length !== 3 || codon2Str.length !== 3) {
+        continue;
+      }
+
+      const c1 = codonToInt(codon1Str);
+      const c2 = codonToInt(codon2Str);
+
+      const N = c1 * 64 + c2;
+
+      const [p, q] = semiprimeFactors(N);
+      const additive_complexity = (p + q) / 2;
+      const multiplicative_resistance = p * q;
+
+      totalLambda += fingerprint(p, q);
+      factorizationDetails.push({ N, p, q, additive_complexity, multiplicative_resistance });
+    } catch (e) {
+      // Skip windows that don't form valid semiprimes or codons
+      continue;
+    }
+  }
+  return { totalLambda, factorizationDetails };
 };

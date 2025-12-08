@@ -1,5 +1,5 @@
 {
-  "name": "Semiprime Lambda Pipeline",
-  "description": "A React frontend to calculate Semiprime Lambda scores for gRNA candidates from a CSV dataset or by discovering them directly from a FASTA sequence.",
+  "name": "Spartan R&D Platform",
+  "description": "A comprehensive R&D platform integrating the Semiprime Lambda Pipeline for genomic discovery, the Red Team Pipeline for security validation, and the Obsidian Φ-Core for financial telemetry and governance.",
   "requestFramePermissions": []
 }
